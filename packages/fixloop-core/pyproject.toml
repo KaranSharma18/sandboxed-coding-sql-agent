@@ -22,7 +22,7 @@ dependencies = [
     "boto3>=1.35",
     "structlog>=24.4",
     "prometheus-client>=0.21",
-    "pyjwt[crypto]>=2.10",
+    "pyjwt[crypto]>=2.15.1",
     "tenacity>=9.0",
 ]
 
