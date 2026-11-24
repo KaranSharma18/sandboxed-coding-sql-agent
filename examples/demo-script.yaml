@@ -1,0 +1,38 @@
+# Answers for the scripted model (FIXLOOP_GEMINI__BACKEND=scripted), so the examples run without a
+# Gemini key or any cost. `times: 0` means a step can be used any number of times.
+steps:
+  - role: plan
+    when_contains: parse_date
+    times: 0
+    output:
+      hypothesis: parse_date passes day and month to date() in the wrong order, so 2024-03-15 becomes month 15.
+      approach: Pass the parts as date(year, month, day).
+      files_to_change: [dates/parse.py]
+      files_to_read: []
+      tests_expected_to_pass: [tests/test_dates.py::test_parse_dates]
+      risk: low
+      dependency_requests: []
+  - role: patch
+    when_contains: parse_date
+    times: 0
+    output:
+      summary: parse_date passed day and month to date() in the wrong order.
+      edits:
+        - path: dates/parse.py
+          action: replace
+          search: "return date(int(year), int(day), int(month))"
+          replace: "return date(int(year), int(month), int(day))"
+          reason: date() takes year, month, day
+  - role: sql_candidate
+    when_contains: paying customers
+    times: 0
+    output:
+      reasoning: Join orders to customers, keep paid orders, aggregate per country.
+      query: |
+        SELECT c.country, COUNT(DISTINCT o.customer_id) AS paying_customers, SUM(o.amount) AS revenue
+        FROM orders o JOIN customers c ON c.id = o.customer_id
+        WHERE o.status = 'paid'
+        GROUP BY c.country
+        ORDER BY revenue DESC
+      output_columns: [country, paying_customers, revenue]
+      assumptions: [refunded orders are not revenue]

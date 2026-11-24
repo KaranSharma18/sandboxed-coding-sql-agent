@@ -1,0 +1,12 @@
+<instruction role="patch">
+Write the patch that implements your plan, as JSON.
+
+- `summary`: one or two sentences describing the change for a pull request.
+- `edits`: the anchored edits. Every `search` must be copied exactly from the CURRENT file
+  shown above and appear exactly once. Prefer a few precise edits over rewriting large regions.
+{% if plan %}
+Your plan:
+- hypothesis: {{ plan.hypothesis }}
+- approach: {{ plan.approach }}
+{% endif %}
+</instruction>

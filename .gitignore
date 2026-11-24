@@ -1,0 +1,36 @@
+# secrets: never commit these
+.env
+.env.*
+!.env.example
+.secrets/
+*.pem
+*.key
+
+# Python and tooling
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.coverage
+coverage.xml
+htmlcov/
+dist/
+build/
+
+# local data written by Fixloop
+.fixloop-data/
+eval/results/
+
+# editors and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# tool caches
+.import_linter_cache/

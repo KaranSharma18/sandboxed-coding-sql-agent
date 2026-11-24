@@ -1,0 +1,19 @@
+# Non-secret settings. Secrets (database URL with password, Gemini key, GitHub App key, upload
+# token secret, S3 credentials) come from a Secret named `fixloop-secrets` that you create with
+# your secret manager (External Secrets, Sealed Secrets, ...). Never commit it.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fixloop-config
+data:
+  FIXLOOP_ENV: production
+  FIXLOOP_REDIS__QUEUE_URL: redis://redis-queue:6379/0
+  FIXLOOP_REDIS__CACHE_URL: redis://redis-cache:6379/0
+  FIXLOOP_STORAGE__BACKEND: s3
+  FIXLOOP_STORAGE__BUCKET: fixloop-prod
+  FIXLOOP_OBSERVABILITY__LOG_JSON: "true"
+  FIXLOOP_OBSERVABILITY__METRICS_PORT: "9100"
+  FIXLOOP_RUNNER__ISOLATION: production
+  FIXLOOP_RUNNER__RUNTIME: runsc
+  FIXLOOP_RUNNER__REQUIRE_PINNED_IMAGES: "true"
+  FIXLOOP_RUNNER__INDEX_URL: http://pkgproxy.fixloop.svc:8080/simple

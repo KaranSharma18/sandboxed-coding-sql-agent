@@ -1,0 +1,17 @@
+[project]
+name = "fixloop-pytest"
+version = "0.1.0"
+description = "Fixloop's pytest reporting plugin: JSONL outcomes, collection set, changed-line coverage, per-test timeouts and deep traces"
+readme = "README.md"
+# Runs inside sandboxes against the project's own Python, so it supports older versions
+# than the services do and has no dependencies at all (pytest comes from the project).
+requires-python = ">=3.10"
+license = "Apache-2.0"
+dependencies = []
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fixloop_pytest"]

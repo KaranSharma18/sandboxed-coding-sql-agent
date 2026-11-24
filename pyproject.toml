@@ -1,0 +1,143 @@
+# Fixloop workspace root.
+#
+# This is a *virtual* uv workspace: the root is not a package itself, it only ties the
+# members together under one lockfile and holds the shared tool configuration.
+# Shared libraries live in packages/, deployable services in apps/, the evaluation
+# harness in eval/.
+
+[tool.uv.workspace]
+members = ["packages/*", "apps/*", "eval"]
+
+[tool.uv.sources]
+fixloop-core = { workspace = true }
+fixloop-pytest = { workspace = true }
+fixloop-sqlexec = { workspace = true }
+fixloop-client = { workspace = true }
+fixloop-api = { workspace = true }
+fixloop-worker = { workspace = true }
+fixloop-runner = { workspace = true }
+fixloop-publisher = { workspace = true }
+fixloop-pkgproxy = { workspace = true }
+fixloop-eval = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "hypothesis>=6.120",
+    "respx>=0.22",
+    "ruff>=0.8",
+    "pyright>=1.1.390",
+    "import-linter>=2.1",
+    "poethepoet>=0.31",
+    "pre-commit>=4.0",
+]
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+extend-exclude = ["tests/fixtures/repos", "examples"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "ASYNC", "RUF", "C4", "PIE", "PT", "S"]
+ignore = [
+    "S101",    # assert is fine in tests and for internal invariants
+    "S603",    # subprocess without shell is exactly what we want
+    "S607",    # partial executable paths are resolved deliberately (uv, docker, pg_ctl)
+    "S311",    # random is used for seeded shuffles, not cryptography
+    "S608",    # SQL strings are built from validated identifiers in the SQL executor
+    "RUF012",  # mutable class defaults are pydantic fields
+    "B008",    # FastAPI Depends() in defaults is the framework's idiom
+    "SIM105",  # try/except/pass reads more plainly than contextlib.suppress in hot paths
+    "S110",    # try/except/pass is used only for best-effort cleanup, each one commented
+    "UP046",   # Generic[T] is clearer than PEP 695 syntax for most readers
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "B011", "PT011", "PT012", "PT018", "ASYNC", "SIM115", "E501", "RUF001"]
+"eval/**" = ["S"]
+"scripts/**" = ["S"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "fixloop_core", "fixloop_pytest", "fixloop_sqlexec", "fixloop_client", "fixloop_api",
+    "fixloop_worker", "fixloop_runner", "fixloop_publisher", "fixloop_pkgproxy", "fixloop_eval",
+]
+
+# ---------------------------------------------------------------- pyright
+[tool.pyright]
+include = ["packages", "apps", "eval/src"]
+exclude = ["**/__pycache__", "tests/fixtures"]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+reportMissingTypeStubs = false
+venvPath = "."
+venv = ".venv"
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-ra --strict-markers"
+norecursedirs = ["tests/fixtures", "examples", ".venv", "node_modules"]
+markers = [
+    "integration: needs Postgres and Redis (started automatically when the binaries are installed)",
+    "docker: needs a Docker daemon and locally built sandbox images",
+    "e2e: end-to-end through API, worker and runner with the scripted model",
+    "live: calls the real Gemini API (needs FIXLOOP_GEMINI__API_KEY); never runs by default",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:botocore.*",
+]
+
+# ---------------------------------------------------------------- import-linter
+# The core never depends on an app, and pure logic never imports infrastructure
+# libraries directly. CI runs `lint-imports` to keep it that way.
+[tool.importlinter]
+root_packages = ["fixloop_core", "fixloop_api", "fixloop_worker", "fixloop_runner", "fixloop_publisher"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Core never imports an app"
+type = "forbidden"
+source_modules = ["fixloop_core"]
+forbidden_modules = ["fixloop_api", "fixloop_worker", "fixloop_runner", "fixloop_publisher"]
+
+[[tool.importlinter.contracts]]
+name = "Pure logic stays free of infrastructure libraries"
+type = "forbidden"
+source_modules = [
+    "fixloop_core.patching", "fixloop_core.policy", "fixloop_core.traces", "fixloop_core.verify_python",
+    "fixloop_core.verify_sql", "fixloop_core.repomap", "fixloop_core.context", "fixloop_core.scoring",
+    "fixloop_core.loop",
+]
+forbidden_modules = ["redis", "sqlalchemy", "docker", "google", "boto3", "fastapi"]
+
+[[tool.importlinter.contracts]]
+name = "Apps do not import each other"
+type = "independence"
+modules = ["fixloop_api", "fixloop_worker", "fixloop_runner", "fixloop_publisher"]
+
+# ---------------------------------------------------------------- tasks (poethepoet)
+# Cross-platform task runner: `uv run poe <task>` works the same on Windows and Linux.
+[tool.poe.tasks]
+dev = { sequence = [{ cmd = "python scripts/build_images.py" }, { cmd = "docker compose up -d --build" }, { cmd = "python scripts/wait_ready.py" }], help = "Build the sandbox images, start the local stack and wait until it is ready" }
+down = { cmd = "docker compose down", help = "Stop the local stack" }
+logs = { cmd = "docker compose logs -f --tail 100", help = "Follow service logs" }
+test = { cmd = "pytest -m 'not integration and not docker and not e2e and not live'", help = "Unit tests (no services needed)" }
+test-int = { cmd = "pytest -m 'integration and not docker'", help = "Integration tests (Postgres + Redis)" }
+test-docker = { cmd = "pytest -m docker", help = "Sandbox tests against a real Docker daemon" }
+e2e = { cmd = "pytest -m e2e", help = "End-to-end tests with the scripted model" }
+test-all = { cmd = "pytest -m 'not live'", help = "Everything except live model calls" }
+lint = { sequence = [{ cmd = "ruff check ." }, { cmd = "lint-imports" }], help = "Lint and check import layering" }
+fmt = { sequence = [{ cmd = "ruff format ." }, { cmd = "ruff check --fix ." }], help = "Format and autofix" }
+typecheck = { cmd = "pyright", help = "Static type check" }
+migrate = { cmd = "docker compose run --rm migrate", help = "Apply database migrations (stack in Docker)" }
+migrate-local = { cmd = "alembic upgrade head", help = "Apply migrations to FIXLOOP_DATABASE__URL" }
+seed = { cmd = "docker compose exec api fixloop-admin bootstrap-local --no-save", help = "Create the local tenant and print an API key (stack in Docker)" }
+seed-local = { cmd = "fixloop-admin bootstrap-local", help = "Same, against FIXLOOP_DATABASE__URL from your shell or .env" }
+images = { cmd = "python scripts/build_images.py", help = "Build sandbox and service images" }
+conformance = { cmd = "fixloop-runner conformance", help = "Run the sandbox isolation self-test" }
+eval-smoke = { cmd = "fixloop-eval run --suite fixtures --limit 10", help = "Small live evaluation run" }

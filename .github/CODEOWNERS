@@ -1,0 +1,5 @@
+# Changes to the sandbox, policies and prompts get a second pair of eyes.
+*                         @KaranSharma18
+/apps/runner/             @KaranSharma18
+/config/policies.yaml     @KaranSharma18
+/prompts/                 @KaranSharma18

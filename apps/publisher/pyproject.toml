@@ -1,0 +1,17 @@
+[project]
+name = "fixloop-publisher"
+version = "0.1.0"
+description = "Fixloop publisher: the only holder of the GitHub App key; delivers outbox side effects"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+dependencies = ["fixloop-core"]
+
+[project.scripts]
+fixloop-publisher = "fixloop_publisher.main:run"
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fixloop_publisher"]

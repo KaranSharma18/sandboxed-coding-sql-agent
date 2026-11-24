@@ -1,0 +1,23 @@
+[project]
+name = "fixloop-api"
+version = "0.1.0"
+description = "Fixloop HTTP API: tasks, events, uploads, usage and GitHub webhooks"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+dependencies = [
+    "fixloop-core",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "typer>=0.15",
+]
+
+[project.scripts]
+fixloop-api = "fixloop_api.main:run"
+fixloop-admin = "fixloop_api.admin:app"
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fixloop_api"]

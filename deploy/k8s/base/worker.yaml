@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: fixloop-worker}}
+  template:
+    metadata:
+      labels: {app: fixloop-worker}
+    spec:
+      terminationGracePeriodSeconds: 60  # in-flight tasks keep their checkpoints; another worker resumes them
+      securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: worker
+          image: fixloop-services
+          command: ["fixloop-worker"]
+          envFrom: [{configMapRef: {name: fixloop-config}}, {secretRef: {name: fixloop-secrets}}]
+          ports: [{containerPort: 9100, name: metrics}]
+          resources: {requests: {cpu: 250m, memory: 512Mi}, limits: {memory: 1Gi}}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: ["ALL"]}}
+---
+# Scale workers on queue lag (KEDA, https://keda.sh). Interactive work scales first.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: worker
+spec:
+  scaleTargetRef: {name: worker}
+  minReplicaCount: 2
+  maxReplicaCount: 20
+  triggers:
+    - type: redis-streams
+      metadata:
+        address: redis-queue.fixloop.svc:6379
+        stream: fixloop:q:tasks:interactive
+        consumerGroup: workers
+        lagCount: "8"
+    - type: redis-streams
+      metadata:
+        address: redis-queue.fixloop.svc:6379
+        stream: fixloop:q:tasks:batch
+        consumerGroup: workers
+        lagCount: "32"

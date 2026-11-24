@@ -1,0 +1,134 @@
+# Model routing, prices and provider limits.
+#
+# Model ids and prices change often, so they live here instead of in code. Every model
+# call records the model id and the price row it was billed with, and startup refuses to
+# run if a routed model has no price (a missing price would make budgets meaningless).
+#
+# Values reviewed November 2026. Prices are USD per million tokens.
+
+prices:
+  - model: gemini-3.8-flash
+    effective: "2026-11-01"
+    input: 1.50
+    cached_input: 0.15
+    output: 7.50
+  - model: gemini-3.5-flash-lite
+    effective: "2026-11-01"
+    input: 0.30
+    cached_input: 0.03
+    output: 1.50
+  - model: gemini-3.1-pro-preview
+    effective: "2026-11-01"
+    input: 2.00
+    cached_input: 0.20
+    output: 12.00
+  # Fallback models are priced like their primaries on purpose: budgets stay conservative
+  # even if the fallback is cheaper. Update these from the pricing page when it matters.
+  - model: gemini-3.6-flash
+    effective: "2026-11-01"
+    input: 1.50
+    cached_input: 0.15
+    output: 7.50
+  - model: gemini-3.1-flash-lite
+    effective: "2026-11-01"
+    input: 0.30
+    cached_input: 0.03
+    output: 1.50
+
+# One entry per role. `thinking` is mapped to the provider's thinking level; if a model
+# does not support a level, the client falls back to the nearest one and logs a warning.
+# `input_budget` is the most context (in tokens) the context builder may pack for the role.
+roles:
+  plan:
+    model: gemini-3.8-flash
+    fallback: gemini-3.6-flash
+    thinking: medium
+    max_output_tokens: 4096
+    timeout_s: 60
+    input_budget: 32000
+  patch:
+    model: gemini-3.8-flash
+    fallback: gemini-3.6-flash
+    thinking: medium
+    max_output_tokens: 12288
+    timeout_s: 120
+    input_budget: 48000
+  repair:
+    model: gemini-3.8-flash
+    fallback: gemini-3.6-flash
+    thinking: medium
+    max_output_tokens: 12288
+    timeout_s: 120
+    input_budget: 48000
+  repair_escalated:
+    model: gemini-3.1-pro-preview
+    fallback: gemini-3.8-flash
+    thinking: high
+    max_output_tokens: 16384
+    timeout_s: 180
+    input_budget: 48000
+  digest:
+    model: gemini-3.5-flash-lite
+    fallback: gemini-3.1-flash-lite
+    thinking: low
+    max_output_tokens: 2048
+    timeout_s: 30
+    input_budget: 12000
+  sql_candidate:
+    model: gemini-3.8-flash
+    fallback: gemini-3.6-flash
+    thinking: medium
+    max_output_tokens: 4096
+    timeout_s: 60
+    input_budget: 16000
+  sql_repair:
+    model: gemini-3.8-flash
+    fallback: gemini-3.6-flash
+    thinking: medium
+    max_output_tokens: 4096
+    timeout_s: 60
+    input_budget: 16000
+
+# Model profiles a task can ask for (TaskOptions.model_profile).
+profiles:
+  economy:
+    escalation: false
+    max_repairs: 2
+    cost_multiplier: 1.0
+    role_overrides: {}
+  default:
+    escalation: true
+    max_repairs: 3
+    cost_multiplier: 1.0
+    role_overrides: {}
+  quality:
+    escalation: true
+    max_repairs: 3
+    cost_multiplier: 2.0
+    role_overrides:
+      plan: gemini-3.1-pro-preview
+      repair: gemini-3.1-pro-preview
+      sql_candidate: gemini-3.1-pro-preview
+      sql_repair: gemini-3.1-pro-preview
+
+# Transient-error retries per model (429, 5xx, timeouts). Full jitter between tries.
+retries:
+  attempts: 3
+  base_delay_s: 1.0
+  max_delay_s: 20.0
+
+# Per-model circuit breaker: open after N consecutive failures or a failure rate over a
+# sliding window; while open, the role goes to its fallback model.
+breaker:
+  consecutive_failures: 5
+  failure_rate: 0.5
+  window: 20
+  open_seconds: 60
+
+# Shared token buckets across all workers, sized to the project's provider quota.
+rate_limits:
+  gemini-3.8-flash: { rpm: 1000, tpm: 4000000 }
+  gemini-3.6-flash: { rpm: 1000, tpm: 4000000 }
+  gemini-3.5-flash-lite: { rpm: 2000, tpm: 4000000 }
+  gemini-3.1-flash-lite: { rpm: 2000, tpm: 4000000 }
+  gemini-3.1-pro-preview: { rpm: 150, tpm: 2000000 }

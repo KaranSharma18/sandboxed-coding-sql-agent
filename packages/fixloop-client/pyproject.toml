@@ -1,0 +1,22 @@
+[project]
+name = "fixloop-client"
+version = "0.1.0"
+description = "Python SDK and the `fixloop` command-line tool for the Fixloop API"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+dependencies = [
+    "httpx>=0.28",
+    "typer>=0.15",
+    "rich>=13.9",
+]
+
+[project.scripts]
+fixloop = "fixloop_client.cli:app"
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fixloop_client"]

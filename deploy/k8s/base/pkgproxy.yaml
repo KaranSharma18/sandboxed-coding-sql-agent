@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pkgproxy
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: fixloop-pkgproxy}}
+  template:
+    metadata:
+      labels: {app: fixloop-pkgproxy}
+    spec:
+      securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: pkgproxy
+          image: fixloop-services
+          command: ["fixloop-pkgproxy"]
+          env:
+            - {name: PKGPROXY_ALLOWLIST, value: /app/config/allowlist.txt}
+            - {name: PKGPROXY_CACHE_DIR, value: /cache}
+          ports: [{containerPort: 8080, name: http}]
+          readinessProbe: {httpGet: {path: /healthz, port: http}}
+          volumeMounts: [{name: cache, mountPath: /cache}]
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: ["ALL"]}}
+      volumes: [{name: cache, emptyDir: {sizeLimit: 20Gi}}]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pkgproxy
+spec:
+  selector: {app: fixloop-pkgproxy}
+  ports: [{port: 8080, targetPort: http}]

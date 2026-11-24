@@ -1,0 +1,16 @@
+<instruction role="repair">
+The previous attempt did not pass verification. Diagnose why and produce a new set of edits, as JSON.
+
+- `diagnosis`: why the last attempt failed, grounded in the trace.
+- `what_is_different`: how this attempt differs from every earlier attempt listed above.
+- `edits`: anchored edits against the CURRENT files shown above (the best state so far, which
+  may not include the last attempt's changes).
+- `dependency_requests`: only if a third-party package is genuinely missing.
+{% if escalated %}
+Important: the same failure has now repeated. The previous approach does not work. Step back,
+re-read the trace and the deep trace, and take a genuinely different approach.
+{% endif %}
+{% if hidden_feedback %}
+Note: {{ hidden_feedback }}
+{% endif %}
+</instruction>

@@ -1,0 +1,13 @@
+{
+  "runtimes": {
+    "runsc": {
+      "path": "/usr/bin/runsc",
+      "runtimeArgs": ["--platform=systrap", "--overlay2=root:memory"]
+    }
+  },
+  "default-runtime": "runc",
+  "log-driver": "json-file",
+  "log-opts": {"max-size": "10m", "max-file": "3"},
+  "live-restore": true,
+  "no-new-privileges": true
+}

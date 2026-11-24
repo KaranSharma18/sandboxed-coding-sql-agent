@@ -1,0 +1,7 @@
+# Pinned sandbox image digests. Written by the release workflow after images are built
+# and signed. The runner refuses an image whose digest is not listed here when
+# FIXLOOP_RUNNER__REQUIRE_PINNED_IMAGES=true (the production setting).
+#
+# Format: <logical name> <image reference with digest>
+# Example:
+# python-3.12 ghcr.io/fixloop/sbx-python@sha256:<64 hex>

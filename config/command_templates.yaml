@@ -1,0 +1,57 @@
+# The only commands a sandbox ever runs. The model never supplies any part of a command:
+# the worker picks a template id and typed arguments, the runner validates the arguments
+# against this file and builds the argument list. No shell is involved anywhere.
+#
+# Placeholders the runner substitutes per backend:
+#   {PYTHON}     the environment's interpreter  (docker: /opt/venv/bin/python)
+#   {SYSPYTHON}  the image's own interpreter     (docker: python3)
+#   {WORKSPACE}  the materialized repository     (docker: /workspace)
+#   {OUT}        the artifacts directory         (docker: /out)
+#   {ENV}        the prepared environment        (docker: /opt/venv or /env)
+#   {INDEX_URL}  the package proxy index URL (prepare only)
+
+templates:
+  python-prepare:
+    image_family: python
+    network: proxy
+    argv: ["{SYSPYTHON}", "-m", "fixloop_pytest.prepare", "--venv", "{ENV}",
+           "--requirements", "{WORKSPACE}/.fixloop/requirements.txt", "--index-url", "{INDEX_URL}",
+           "--report", "{OUT}/prepare.json"]
+    params: {}
+
+  pytest-default:
+    image_family: python
+    network: none
+    argv: ["{PYTHON}", "-m", "pytest", "-p", "fixloop_pytest.plugin", "--fixloop-out={OUT}",
+           "--junitxml={OUT}/junit.xml", "-p", "no:cacheprovider", "-q", "--color=no",
+           "-o", "console_output_style=classic"]
+    params:
+      test_timeout:  { flag: "--fixloop-test-timeout={value}", type: int, min: 1, max: 300, default: 30 }
+      changed_files: { flag: "--fixloop-changed={value}", type: path_list }
+      deep_trace:    { flag: "--fixloop-deep-trace={value}", type: nodeid }
+      shuffle_seed:  { flag: "--fixloop-shuffle-seed={value}", type: int, min: 0, max: 2147483647 }
+      node_ids:      { positional: true, type: nodeid_list, max_items: 2000 }
+
+  sql-prepare:
+    image_family: sql
+    network: none
+    argv: ["{SYSPYTHON}", "-m", "fixloop_sqlexec", "prepare", "--spec", "{WORKSPACE}/.fixloop/sql_prepare.json",
+           "--env", "{ENV}", "--out", "{OUT}"]
+    params: {}
+
+  sql-run:
+    image_family: sql
+    network: none
+    argv: ["{SYSPYTHON}", "-m", "fixloop_sqlexec", "run", "--spec", "{WORKSPACE}/.fixloop/sql_run.json",
+           "--env", "{ENV}", "--out", "{OUT}", "--work", "{WORKSPACE}/.fixloop/pgrun"]
+    params: {}
+
+# Logical image names -> concrete images. Digests are pinned in images.lock for production;
+# the tag is used when no digest is pinned (local development).
+images:
+  python-3.10: { family: python, ref: "ghcr.io/fixloop/sbx-python:3.10" }
+  python-3.11: { family: python, ref: "ghcr.io/fixloop/sbx-python:3.11" }
+  python-3.12: { family: python, ref: "ghcr.io/fixloop/sbx-python:3.12" }
+  python-3.13: { family: python, ref: "ghcr.io/fixloop/sbx-python:3.13" }
+  sql-duckdb:  { family: sql, ref: "ghcr.io/fixloop/sbx-duckdb:2" }
+  sql-postgres: { family: sql, ref: "ghcr.io/fixloop/sbx-postgres:16" }

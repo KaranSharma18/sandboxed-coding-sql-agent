@@ -1,0 +1,41 @@
+[project]
+name = "fixloop-core"
+version = "0.1.0"
+description = "Fixloop domain logic: task specs, the bounded loop, verification, policy, context assembly and infrastructure adapters"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+dependencies = [
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "pyyaml>=6.0",
+    "jinja2>=3.1",
+    "orjson>=3.10",
+    "zstandard>=0.23",
+    "sqlglot>=26.0",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "redis>=5.2",
+    "httpx>=0.28",
+    "google-genai>=1.20",
+    "boto3>=1.35",
+    "structlog>=24.4",
+    "prometheus-client>=0.21",
+    "pyjwt[crypto]>=2.10",
+    "tenacity>=9.0",
+]
+
+[project.optional-dependencies]
+otel = [
+    "opentelemetry-api>=1.28",
+    "opentelemetry-sdk>=1.28",
+    "opentelemetry-exporter-otlp-proto-http>=1.28",
+]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fixloop_core"]

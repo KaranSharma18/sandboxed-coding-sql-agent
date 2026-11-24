@@ -1,0 +1,15 @@
+.git
+.github
+.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+.fixloop-data
+eval/results
+.env
+.env.*
+.secrets
+*.pem
+docs
+tests

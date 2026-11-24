@@ -1,0 +1,10 @@
+<instruction role="sql_repair">
+The previous query did not pass verification. Diagnose why and write a corrected query, as JSON.
+
+- `diagnosis`: what was wrong, grounded in the error or the result comparison above.
+- `query`: the complete corrected query.
+{% if escalated %}
+Important: the same problem has repeated. Re-read the question and the schema and take a
+genuinely different approach.
+{% endif %}
+</instruction>

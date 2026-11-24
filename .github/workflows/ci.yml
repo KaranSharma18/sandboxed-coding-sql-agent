@@ -1,0 +1,101 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: {enable-cache: true}
+      - run: uv sync --all-packages --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run lint-imports
+      - run: uv run pyright
+
+  unit:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: {enable-cache: true}
+      - run: uv sync --all-packages --frozen
+      - run: uv run poe test
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: {POSTGRES_USER: fixloop, POSTGRES_PASSWORD: fixloop, POSTGRES_DB: fixloop}
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U fixloop" --health-interval 3s --health-retries 20
+      redis-queue:
+        image: redis:7
+        ports: ["6379:6379"]
+      redis-cache:
+        image: redis:7
+        ports: ["6380:6379"]
+    env:
+      FIXLOOP_TEST_DATABASE_URL: postgresql+asyncpg://fixloop:fixloop@localhost:5432/fixloop
+      FIXLOOP_TEST_REDIS_URL: redis://localhost:6379/0
+      FIXLOOP_TEST_REDIS_CACHE_URL: redis://localhost:6380/0
+      FIXLOOP_PG_BIN: /usr/lib/postgresql/16/bin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: {enable-cache: true}
+      - run: uv sync --all-packages --frozen
+      - name: integration tests (real Postgres and Redis, local runner backend)
+        run: uv run poe test-int
+      - name: end-to-end tests (scripted model)
+        run: uv run poe e2e
+
+  sandbox:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: {enable-cache: true}
+      - run: uv sync --all-packages --frozen
+      - name: install gVisor
+        run: |
+          curl -fsSL https://gvisor.dev/archive.key | sudo gpg --dearmor -o /usr/share/keyrings/gvisor-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gvisor-archive-keyring.gpg] https://storage.googleapis.com/gvisor/releases release main" | sudo tee /etc/apt/sources.list.d/gvisor.list
+          sudo apt-get update && sudo apt-get install -y runsc
+          sudo runsc install && sudo systemctl reload docker
+      - run: uv run python scripts/build_images.py --only python-3.12 --only sql-duckdb --only sql-postgres
+      - run: docker network create --internal fixloop-sandbox-proxy
+      - name: sandbox tests (runc)
+        run: uv run poe test-docker
+      - name: isolation self-test under gVisor
+        run: uv run fixloop-runner conformance
+        env:
+          FIXLOOP_RUNNER__ISOLATION: production
+          FIXLOOP_RUNNER__RUNTIME: runsc
+          FIXLOOP_ENV: test
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

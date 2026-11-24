@@ -1,0 +1,75 @@
+# Plan tiers: per-task defaults and per-tenant ceilings. A task may lower its own limits;
+# it can never raise them above its tenant's plan.
+
+plans:
+  standard:
+    task:
+      max_repairs: 3
+      max_model_calls: 12
+      max_input_tokens: 300000
+      max_output_tokens: 40000
+      max_cost_usd_python: 0.75
+      max_cost_usd_sql: 0.15
+      max_sandbox_seconds: 600
+      max_executions: 10
+      wall_clock_seconds: 900
+      format_reasks_per_step: 2
+    tenant:
+      running_tasks: 4
+      queued_tasks: 100
+      daily_cost_usd: 25.0
+      tasks_per_day: 500
+      api_requests_per_minute: 60
+      sandbox_seconds_per_day: 20000
+  # Used by the local tenant created by `fixloop-admin bootstrap-local`.
+  local:
+    task:
+      max_repairs: 3
+      max_model_calls: 12
+      max_input_tokens: 300000
+      max_output_tokens: 40000
+      max_cost_usd_python: 0.75
+      max_cost_usd_sql: 0.15
+      max_sandbox_seconds: 900
+      max_executions: 10
+      wall_clock_seconds: 1200
+      format_reasks_per_step: 2
+    tenant:
+      running_tasks: 2
+      queued_tasks: 50
+      daily_cost_usd: 10.0
+      tasks_per_day: 200
+      api_requests_per_minute: 120
+      sandbox_seconds_per_day: 20000
+
+# Platform-wide protections.
+global:
+  daily_cost_usd: 500.0
+  alert_fraction: 0.8
+
+# Execution limits applied to every sandbox run.
+sandbox:
+  timeout_s_default: 120
+  timeout_s_max: 300
+  prepare_timeout_s: 600
+  memory_mb: 2048
+  cpus: 2.0
+  pids: 256
+  nofile: 1024
+  fsize_mb: 100
+  tmpfs_mb: 256
+  stdout_bytes: 1048576
+  artifacts_bytes: 20971520
+  regression_budget_s: 180
+  per_test_timeout_s: 30
+
+# Input size limits checked at intake.
+intake:
+  inline_max_bytes: 2097152
+  inline_max_files: 200
+  upload_max_bytes: 52428800
+  unpacked_max_bytes: 524288000
+  max_files: 20000
+  description_max_chars: 20000
+  sql_seed_max_bytes: 104857600
+  max_model_file_bytes: 1048576

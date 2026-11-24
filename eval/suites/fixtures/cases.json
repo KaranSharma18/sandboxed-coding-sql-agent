@@ -1,0 +1,55 @@
+[
+  {
+    "name": "dates-day-month-swap",
+    "tags": ["python", "bugfix"],
+    "spec": {"kind": "python.fix", "description": "parse_dates returns wrong dates for valid input",
+             "source": {"type": "example", "path": "examples/buggy-dates"},
+             "oracle": {"type": "pytest", "target_tests": ["tests/test_dates.py::test_parse_dates"]}},
+    "expect": "verified",
+    "hidden_tests": "eval/suites/fixtures/hidden/dates"
+  },
+  {
+    "name": "dates-nothing-to-fix",
+    "tags": ["python", "guard"],
+    "spec": {"kind": "python.fix", "source": {"type": "example", "path": "examples/buggy-dates"},
+             "oracle": {"type": "pytest", "target_tests": ["tests/test_dates.py::test_strips_whitespace"]}},
+    "expect": "nothing_to_fix"
+  },
+  {
+    "name": "slugify-implement",
+    "tags": ["python", "implement"],
+    "spec": {"kind": "python.implement", "description": "implement slugify as the tests describe",
+             "source": {"type": "example", "path": "examples/implement-slugify"},
+             "oracle": {"type": "pytest", "target_tests": ["tests/test_slugify.py"]}},
+    "expect": "verified"
+  },
+  {
+    "name": "last-n-off-by-one",
+    "tags": ["python", "bugfix"],
+    "spec": {"kind": "python.fix", "description": "last_n returns one item too many",
+             "source": {"type": "inline", "files": {
+               "seq.py": "def last_n(items, n):\n    \"\"\"The last n items (all of them if n >= len).\"\"\"\n    if n <= 0:\n        return []\n    return items[-n - 1:]\n",
+               "tests/test_seq.py": "from seq import last_n\n\n\ndef test_last_two():\n    assert last_n([1, 2, 3, 4], 2) == [3, 4]\n\n\ndef test_zero():\n    assert last_n([1, 2], 0) == []\n"}},
+             "oracle": {"type": "pytest", "target_tests": ["tests/test_seq.py::test_last_two"]}},
+    "expect": "verified"
+  },
+  {
+    "name": "sql-revenue-per-country",
+    "tags": ["sql", "write"],
+    "spec": {"kind": "sql.write",
+             "description": "Revenue from paid orders and the number of paying customers per country, highest revenue first.",
+             "source": {"type": "sql_example", "path": "examples/sql-duckdb"},
+             "oracle": {"type": "sql", "dialect": "duckdb", "order_matters": true, "sort_key": ["revenue"]}},
+    "expect": "verified"
+  },
+  {
+    "name": "sql-fix-refunds-counted",
+    "tags": ["sql", "fix"],
+    "spec": {"kind": "sql.fix",
+             "description": "Revenue from paid orders and the number of paying customers per country, highest revenue first.",
+             "source": {"type": "sql_example", "path": "examples/sql-duckdb"},
+             "oracle": {"type": "sql", "dialect": "duckdb", "order_matters": true, "sort_key": ["revenue"],
+                        "broken_query": "SELECT c.country, COUNT(o.customer_id) AS paying_customers, SUM(o.amount) AS revenue FROM orders o JOIN customers c ON c.id = o.customer_id GROUP BY c.country ORDER BY revenue DESC"}},
+    "expect": "verified"
+  }
+]

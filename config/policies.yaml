@@ -1,0 +1,64 @@
+# Patch policy and SQL safety rules. Deterministic checks that run before anything executes.
+# Every rule has a stable code that appears in attempt records and in the re-ask message.
+
+patch:
+  # The oracle is off limits: the agent may not edit the tests that judge it.
+  protected_globs:
+    - "tests/**"
+    - "test/**"
+    - "**/test_*.py"
+    - "**/*_test.py"
+    - "**/conftest.py"
+    - "pytest.ini"
+    - "tox.ini"
+    - ".fixloop/**"
+  # Tooling and supply-chain files: CI, containers, hooks and lockfiles.
+  protected_infra_globs:
+    - ".github/**"
+    - ".gitlab-ci.yml"
+    - "Dockerfile*"
+    - "**/Dockerfile*"
+    - ".pre-commit-config.yaml"
+    - "uv.lock"
+    - "poetry.lock"
+    - "Pipfile.lock"
+    - "requirements*.txt"
+  # Tables of pyproject.toml / setup.cfg that configure test discovery or coverage.
+  protected_pyproject_tables: ["tool.pytest", "tool.coverage"]
+  protected_setup_cfg_sections: ["tool:pytest", "coverage:run", "coverage:report"]
+  limits:
+    max_files: 10
+    max_changed_lines: 400
+    max_changed_lines_implement: 1000
+    max_deletes: 3
+    max_edits: 20
+  # Names whose use in *added* code counts as test gaming (checked on the AST, not text).
+  test_gaming:
+    forbidden_calls: ["pytest.skip", "pytest.xfail", "pytest.exit", "pytest.importorskip", "sys.exit", "os._exit"]
+    forbidden_decorators: ["pytest.mark.skip", "pytest.mark.skipif", "pytest.mark.xfail", "unittest.skip", "unittest.skipIf", "unittest.skipUnless", "unittest.expectedFailure"]
+    forbidden_imports_from:
+      pytest: ["skip", "xfail", "exit", "importorskip"]
+      unittest: ["skip", "skipIf", "skipUnless", "expectedFailure"]
+    forbidden_strings: ["PYTEST_CURRENT_TEST", "fixloop_pytest", "_pytest"]
+    forbidden_modules: ["_pytest", "fixloop_pytest"]
+  # Allowed, but reported as warnings in the verdict and the PR description.
+  risky_modules: ["subprocess", "socket", "ctypes", "multiprocessing"]
+  risky_calls: ["eval", "exec", "compile", "__import__", "os.system", "os.popen"]
+
+sql:
+  max_query_chars: 20000
+  max_rows: 10000
+  statement_timeout_ms: 10000
+  explain_max_rows_estimate: 50000000
+  # Functions and features refused before execution, per dialect (lower-case).
+  deny_functions:
+    common: ["random", "setseed", "gen_random_uuid", "uuid"]
+    postgres: ["pg_sleep", "pg_sleep_for", "pg_sleep_until", "pg_read_file", "pg_read_binary_file", "pg_ls_dir",
+               "pg_stat_file", "lo_import", "lo_export", "dblink", "dblink_exec", "pg_terminate_backend",
+               "pg_cancel_backend", "set_config", "current_setting", "pg_reload_conf", "query_to_xml"]
+    duckdb: ["read_csv", "read_csv_auto", "read_parquet", "read_json", "read_json_auto", "read_text",
+             "read_blob", "glob", "parquet_scan", "parquet_metadata", "sniff_csv", "duckdb_secrets", "getenv",
+             "httpfs", "query", "query_table"]
+  # Non-deterministic time functions: refused when the task sets an as_of date.
+  time_functions: ["now", "current_date", "current_timestamp", "localtimestamp", "transaction_timestamp",
+                   "statement_timestamp", "clock_timestamp", "today", "get_current_time", "get_current_timestamp"]

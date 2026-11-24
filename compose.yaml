@@ -1,0 +1,178 @@
+# Local stack. `uv run poe dev` builds the sandbox images and starts everything; `uv run poe down` stops it.
+# Profiles: `github` adds the publisher (GitHub App), `obs` adds Prometheus.
+name: fixloop
+
+x-service-env: &service-env
+  FIXLOOP_ENV: local
+  FIXLOOP_DATABASE__URL: postgresql+asyncpg://fixloop:fixloop@postgres:5432/fixloop
+  FIXLOOP_REDIS__QUEUE_URL: redis://redis-queue:6379/0
+  FIXLOOP_REDIS__CACHE_URL: redis://redis-cache:6379/0
+  FIXLOOP_STORAGE__BACKEND: s3
+  FIXLOOP_STORAGE__ENDPOINT_URL: http://minio:9000
+  FIXLOOP_STORAGE__PUBLIC_ENDPOINT_URL: http://localhost:9000
+  FIXLOOP_STORAGE__BUCKET: fixloop-dev
+  FIXLOOP_STORAGE__ACCESS_KEY_ID: fixloop
+  FIXLOOP_STORAGE__SECRET_ACCESS_KEY: fixloop-dev-secret
+  FIXLOOP_API__PUBLIC_URL: http://localhost:8080
+  FIXLOOP_OBSERVABILITY__LOG_JSON: "false"
+  FIXLOOP_OBSERVABILITY__METRICS_PORT: "9100"
+
+x-service: &service
+  build:
+    context: .
+    dockerfile: images/services/Dockerfile
+  image: fixloop/services:dev
+  restart: unless-stopped
+  env_file:
+    - path: .env
+      required: false
+  environment: *service-env
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fixloop
+      POSTGRES_PASSWORD: fixloop
+      POSTGRES_DB: fixloop
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fixloop -d fixloop"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Queues, budgets and locks: must never evict a key, and survives restarts (AOF).
+  redis-queue:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports: ["6379:6379"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 20
+
+  # Caches only: bounded memory, least-recently-used keys are evicted, nothing is persisted.
+  redis-cache:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru", "--save", "",
+              "--appendonly", "no"]
+    ports: ["6380:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: fixloop
+      MINIO_ROOT_PASSWORD: fixloop-dev-secret
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [miniodata:/data]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 3s
+      retries: 20
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio: {condition: service_healthy}
+    entrypoint: ["/bin/sh", "-c", "mc alias set local http://minio:9000 fixloop fixloop-dev-secret && mc mb -p local/fixloop-dev"]
+    restart: "no"
+
+  migrate:
+    <<: *service
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  api:
+    <<: *service
+    command: ["fixloop-api"]
+    ports: ["8080:8080"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis-queue: {condition: service_healthy}
+      redis-cache: {condition: service_healthy}
+      minio-init: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz')"]
+      interval: 5s
+      retries: 20
+
+  worker:
+    <<: *service
+    command: ["fixloop-worker"]
+    volumes:
+      - ./examples:/app/examples:ro  # for the scripted demo model (FIXLOOP_GEMINI__SCRIPTED_PATH)
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis-queue: {condition: service_healthy}
+      minio-init: {condition: service_completed_successfully}
+
+  # The only service that starts containers. It talks to the Docker daemon through the socket and
+  # never to Postgres or a model provider (ADR-11).
+  runner:
+    <<: *service
+    command: ["fixloop-runner"]
+    user: "0:0"  # needed for the Docker socket; sandboxes themselves run as uid 10001
+    environment:
+      <<: *service-env
+      FIXLOOP_RUNNER__BACKEND: docker
+      FIXLOOP_RUNNER__WORKDIR: /data/runner
+      FIXLOOP_RUNNER__INDEX_URL: http://pkgproxy:8080/simple
+      FIXLOOP_RUNNER__PROXY_NETWORK: fixloop-sandbox-proxy
+      FIXLOOP_RUNNER__SLOTS: "2"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - runnerdata:/data/runner
+    depends_on:
+      redis-queue: {condition: service_healthy}
+      minio-init: {condition: service_completed_successfully}
+      pkgproxy: {condition: service_started}
+
+  # Allowlisted, wheels-only package index: the one network destination of a preparing sandbox.
+  pkgproxy:
+    <<: *service
+    command: ["fixloop-pkgproxy"]
+    environment:
+      PKGPROXY_ALLOWLIST: /app/config/allowlist.txt
+      PKGPROXY_CACHE_DIR: /data/pkgcache
+    volumes: [pkgcache:/data/pkgcache]
+    networks:
+      default: {}
+      sandbox-proxy:
+        aliases: [pkgproxy]
+
+  publisher:
+    <<: *service
+    command: ["fixloop-publisher"]
+    profiles: ["github"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+
+  prometheus:
+    image: prom/prometheus:latest
+    profiles: ["obs"]
+    volumes: [./deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro]
+    ports: ["9090:9090"]
+
+networks:
+  default: {}
+  # Sandboxes that prepare an environment join this network and can reach nothing but the proxy.
+  sandbox-proxy:
+    name: fixloop-sandbox-proxy
+    internal: true
+
+volumes:
+  pgdata: {}
+  redisdata: {}
+  miniodata: {}
+  runnerdata: {}
+  pkgcache: {}

@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: publisher
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: fixloop-publisher}}
+  template:
+    metadata:
+      labels: {app: fixloop-publisher}
+    spec:
+      securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: publisher
+          image: fixloop-services
+          command: ["fixloop-publisher"]
+          envFrom: [{configMapRef: {name: fixloop-config}}, {secretRef: {name: fixloop-secrets}},
+                    {secretRef: {name: fixloop-github-app}}]
+          resources: {requests: {cpu: 100m, memory: 256Mi}}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: ["ALL"]}}

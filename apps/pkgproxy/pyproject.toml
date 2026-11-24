@@ -1,0 +1,23 @@
+[project]
+name = "fixloop-pkgproxy"
+version = "0.1.0"
+description = "Allowlisted, wheels-only Python package index proxy used by sandbox prepare steps"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+# Deliberately independent of fixloop-core: the proxy is small and sits in the execution plane.
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "httpx>=0.28",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+fixloop-pkgproxy = "fixloop_pkgproxy.main:run"
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fixloop_pkgproxy"]

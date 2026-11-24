@@ -1,0 +1,15 @@
+<instruction role="sql_candidate">
+Write one {{ dialect }} query that answers the question, as JSON.
+
+- `reasoning`: a short explanation of how the query answers the question (tables, joins, filters).
+- `query`: the complete query.
+- `output_columns`: the column names your query returns, in order.
+- `assumptions`: anything you had to assume about the question or the data.
+{% if requirements %}
+Requirements the result must meet:
+{% for r in requirements %}- {{ r }}
+{% endfor %}{% endif %}
+{% if expected_columns %}
+The result must have exactly these columns, in this order: {{ expected_columns | join(", ") }}
+{% endif %}
+</instruction>

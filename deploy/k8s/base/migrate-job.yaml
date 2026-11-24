@@ -1,0 +1,16 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fixloop-migrate
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: migrate
+          image: fixloop-services
+          command: ["alembic", "upgrade", "head"]
+          envFrom: [{configMapRef: {name: fixloop-config}}, {secretRef: {name: fixloop-secrets}}]
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}

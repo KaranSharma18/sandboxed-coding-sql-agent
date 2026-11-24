@@ -1,0 +1,9 @@
+# Normalize line endings in the repository (Windows checkouts get CRLF where git decides, files stay LF here).
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.whl binary
+*.tar binary
+*.gz binary
+*.zst binary
+*.parquet binary

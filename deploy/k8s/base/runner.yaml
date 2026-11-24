@@ -1,0 +1,30 @@
+# Runners live on a dedicated node pool whose nodes run Docker with gVisor (deploy/runner-host).
+# Nothing else is scheduled there, and the runner is the only pod with the Docker socket.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: runner
+spec:
+  selector: {matchLabels: {app: fixloop-runner}}
+  template:
+    metadata:
+      labels: {app: fixloop-runner}
+    spec:
+      nodeSelector: {fixloop.dev/runner: "true"}
+      tolerations: [{key: fixloop.dev/runner, operator: Exists, effect: NoSchedule}]
+      containers:
+        - name: runner
+          image: fixloop-services
+          command: ["fixloop-runner"]
+          envFrom: [{configMapRef: {name: fixloop-config}}, {secretRef: {name: fixloop-runner-secrets}}]
+          env:
+            - {name: FIXLOOP_RUNNER__RUNNER_ID, valueFrom: {fieldRef: {fieldPath: spec.nodeName}}}
+            - {name: FIXLOOP_RUNNER__WORKDIR, value: /data/runner}
+          volumeMounts:
+            - {name: docker-sock, mountPath: /var/run/docker.sock}
+            - {name: data, mountPath: /data/runner}
+          securityContext: {runAsUser: 0, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true}
+          resources: {requests: {cpu: 250m, memory: 256Mi}}
+      volumes:
+        - {name: docker-sock, hostPath: {path: /var/run/docker.sock, type: Socket}}
+        - {name: data, hostPath: {path: /var/lib/fixloop-runner, type: DirectoryOrCreate}}
