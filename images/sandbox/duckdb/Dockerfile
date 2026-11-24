@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # DuckDB sandbox image: Python, DuckDB and the Fixloop SQL executor. Queries run against
 # database files built from the customer's DDL and seeds, opened read-only.
-FROM python:3.12-slim-bookworm
+FROM python:3.15-slim-bookworm
 
 RUN groupadd --gid 10001 sandbox \
  && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin sandbox \
