@@ -7,7 +7,7 @@ license = "Apache-2.0"
 # Deliberately independent of fixloop-core: the proxy is small and sits in the execution plane.
 dependencies = [
     "fastapi>=0.115",
-    "uvicorn[standard]>=0.32",
+    "uvicorn[standard]>=0.54.0",
     "httpx>=0.28",
     "pyyaml>=6.0",
 ]
