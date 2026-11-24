@@ -2,7 +2,7 @@
 # Postgres sandbox image: PostgreSQL 16 server binaries, Python with psycopg, and the Fixloop
 # SQL executor. The executor starts a private server per run on a copy of the prepared data
 # directory, listening only on a Unix socket, and runs the candidate as a read-only role.
-FROM postgres:16-bookworm
+FROM postgres:19-bookworm
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 python3-pip \
