@@ -14,7 +14,7 @@ dependencies = [
 fixloop-sqlexec = "fixloop_sqlexec.__main__:main"
 
 [build-system]
-requires = ["hatchling>=1.25"]
+requires = ["hatchling>=1.33.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]

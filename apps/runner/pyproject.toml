@@ -17,7 +17,7 @@ dependencies = [
 fixloop-runner = "fixloop_runner.main:app"
 
 [build-system]
-requires = ["hatchling>=1.25"]
+requires = ["hatchling>=1.33.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
